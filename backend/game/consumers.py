@@ -68,12 +68,20 @@ class GameConsumer(AsyncWebsocketConsumer):
         
         if action == 'start_game':
             print(f"[WS] start_game received for match {self.match_id} from {username}. Status: {match.status}, HasState: {bool(state)}")
-            if match.status == 'in_progress' and not state:
-                state = GameEngine.create_initial_state(match.player1.username, match.player2.username)
-                state = GameEngine.start_round(state)
-                await self.save_state(match, state)
-                await self.broadcast_state(state, 'game_start')
-                print(f"[WS] Match {self.match_id} started successfully.")
+            if match.status == 'in_progress':
+                if not state:
+                    state = GameEngine.create_initial_state(match.player1.username, match.player2.username)
+                    state = GameEngine.start_round(state)
+                    await self.save_state(match, state)
+                    await self.broadcast_state(state, 'game_start')
+                    print(f"[WS] Match {self.match_id} started successfully.")
+                else:
+                    # State already exists, likely initialized by the other player on a different worker.
+                    # Send the existing state back so this player can start.
+                    await self.send(text_data=json.dumps({
+                        'event': 'game_start',
+                        'state': state
+                    }))
         
         elif action == 'draw_card':
             if state["current_turn"] == username and not state["players"][username]["has_stood"] and state["players"][username]["turns_taken"] < 3 and len(state["players"][username]["visible_cards"]) + len(state["players"][username]["hidden_cards"]) < 4:
