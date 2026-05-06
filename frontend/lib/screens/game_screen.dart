@@ -207,9 +207,41 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final state = _gameState!;
-    final me = state['players'][username] as Map<String, dynamic>;
-    final opponentUsername = state['p1'] == username ? state['p2'] : state['p1'];
-    final opponent = state['players'][opponentUsername] as Map<String, dynamic>;
+    final players = state['players'] as Map<String, dynamic>?;
+    
+    if (state.isEmpty || players == null || players[username] == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Game Room')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Initializing Game State...', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 32),
+              ElevatedButton(onPressed: _startGame, child: const Text('Force Start')),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    final me = players[username] as Map<String, dynamic>;
+    final p1 = state['p1'] as String?;
+    final p2 = state['p2'] as String?;
+    
+    if (p1 == null || p2 == null) {
+       return const Scaffold(body: Center(child: Text('Error: Player data missing')));
+    }
+
+    final opponentUsername = p1 == username ? p2 : p1;
+    final opponent = players[opponentUsername] as Map<String, dynamic>?;
+    
+    if (opponent == null) {
+       return const Scaffold(body: Center(child: Text('Waiting for opponent to connect...')));
+    }
+
     final isMyTurn = state['current_turn'] == username;
 
     return Scaffold(
@@ -254,10 +286,10 @@ class _GameScreenState extends State<GameScreen> {
                   // Opponent Area
                   _PlayerPanel(
                     label: 'Opponent · $opponentUsername',
-                    lives: opponent['lives'] as int,
-                    visibleCards: List<int>.from(opponent['visible_cards']),
-                    hiddenCount: (opponent['hidden_cards'] as List).length,
-                    hasStood: opponent['has_stood'] as bool,
+                    lives: (opponent['lives'] as int?) ?? 0,
+                    visibleCards: List<int>.from(opponent['visible_cards'] ?? []),
+                    hiddenCount: (opponent['hidden_cards'] as List?)?.length ?? 0,
+                    hasStood: (opponent['has_stood'] as bool?) ?? false,
                     isOpponent: true,
                     color: Colors.redAccent,
                   ),
@@ -268,9 +300,9 @@ class _GameScreenState extends State<GameScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _InfoChip(label: 'Target', value: '${state['target_number']}', color: Colors.purpleAccent),
+                      _InfoChip(label: 'Target', value: '${state['target_number'] ?? 21}', color: Colors.purpleAccent),
                       const SizedBox(width: 8),
-                      _InfoChip(label: 'Status', value: state['status'], color: Colors.white54),
+                      _InfoChip(label: 'Status', value: state['status'] ?? 'Active', color: Colors.white54),
                     ],
                   ),
 
@@ -279,10 +311,10 @@ class _GameScreenState extends State<GameScreen> {
                   // My Area
                   _PlayerPanel(
                     label: 'You · $username',
-                    lives: me['lives'] as int,
-                    visibleCards: List<int>.from(me['visible_cards']),
-                    hiddenCards: List<int>.from(me['hidden_cards']),
-                    hasStood: me['has_stood'] as bool,
+                    lives: (me['lives'] as int?) ?? 0,
+                    visibleCards: List<int>.from(me['visible_cards'] ?? []),
+                    hiddenCards: List<int>.from(me['hidden_cards'] ?? []),
+                    hasStood: (me['has_stood'] as bool?) ?? false,
                     isOpponent: false,
                     color: Colors.blueAccent,
                   ),
@@ -317,7 +349,7 @@ class _GameScreenState extends State<GameScreen> {
                     ),
 
                   // Power-ups
-                  if (isMyTurn && !(me['has_stood'] as bool) && (me['powerups'] as List).isNotEmpty) ...[
+                  if (isMyTurn && !((me['has_stood'] as bool?) ?? false) && (me['powerups'] as List? ?? []).isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const Text('Power-ups:', style: TextStyle(color: Colors.white54, fontSize: 12)),
                     const SizedBox(height: 6),
@@ -325,8 +357,8 @@ class _GameScreenState extends State<GameScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
-                      children: (me['powerups'] as List).map<Widget>((p) {
-                        final id = p as int;
+                      children: (me['powerups'] as List? ?? []).map<Widget>((p) {
+                        final id = (p as int?) ?? 0;
                         return OutlinedButton(
                           onPressed: () => _usePowerup(id),
                           style: OutlinedButton.styleFrom(
