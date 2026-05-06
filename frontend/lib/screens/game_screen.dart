@@ -83,8 +83,28 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  void _startGame() {
-    final username = Provider.of<GameState>(context, listen: false).username!;
+  void _startGame() async {
+    final gs = Provider.of<GameState>(context, listen: false);
+    final username = gs.username!;
+    final matchId = gs.matchId!;
+
+    try {
+      final res = await ApiService.getMatchStatus(matchId);
+      if (res['status'] != 'in_progress') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot start yet: Waiting for an opponent to join Match #$matchId!'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      // Ignore network errors and try anyway
+    }
+
     _wsService.sendAction('start_game', username);
   }
 
@@ -203,6 +223,8 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 24),
+              Text('Match ID: ${gs.matchId}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               const Text('Waiting for both players...', style: TextStyle(color: Colors.white70)),
               const SizedBox(height: 8),
               Text(
