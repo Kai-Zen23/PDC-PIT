@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/websocket_service.dart';
+import '../services/api_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -16,6 +18,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _cancelled = false;
   bool _wsConnected = false;
   String? _wsError;
+  Timer? _statusTimer;
 
   // Powerup name map
   static const _powerupNames = {
@@ -50,10 +53,32 @@ class _GameScreenState extends State<GameScreen> {
       _wsService.sendAction('start_game', username);
     };
     _wsService.connect(matchId, username);
+    
+    _startStatusPolling(matchId, username);
+  }
+
+  void _startStatusPolling(String matchId, String username) {
+    _statusTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_gameState != null || _cancelled) {
+        timer.cancel();
+        return;
+      }
+      try {
+        final res = await ApiService.getMatchStatus(matchId);
+        if (res['status'] == 'in_progress') {
+           // Someone joined! Try to start game.
+           // This helps if the WebSocket 'player_joined' signal was missed due to worker isolation.
+           _wsService.sendAction('start_game', username);
+        }
+      } catch (e) {
+        // Silently ignore polling errors
+      }
+    });
   }
 
   @override
   void dispose() {
+    _statusTimer?.cancel();
     _wsService.disconnect();
     super.dispose();
   }

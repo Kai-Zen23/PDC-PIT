@@ -6,4 +6,5 @@ urlpatterns = [
     path('match/find/', views.find_match),
     path('lobby/create/', views.create_lobby),
     path('lobby/join/', views.join_lobby),
+    path('match/<int:match_id>/status/', views.match_status),
 ]
