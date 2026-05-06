@@ -132,9 +132,9 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 10),
                     if (state['current_turn'] == username && !me['has_stood'] && (me['powerups'] as List).isNotEmpty)
                       Wrap(
-                        children: (me['powerups'] as List).map((p) {
+                        children: (me['powerups'] as List).map<Widget>((p) {
                            return ElevatedButton(
-                             onPressed: () => _usePowerup(p),
+                             onPressed: () => _usePowerup(p as int),
                              child: Text('Powerup $p'),
                            );
                         }).toList(),

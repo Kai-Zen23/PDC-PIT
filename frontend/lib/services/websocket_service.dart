@@ -20,7 +20,7 @@ class WebSocketService {
 
   void sendAction(String action, String username, [int? powerup]) {
     if (_channel != null) {
-      final data = {
+      final Map<String, dynamic> data = {
         'action': action,
         'username': username,
       };
