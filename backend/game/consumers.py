@@ -21,6 +21,12 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
+        cancelled = await self.handle_disconnect()
+        if cancelled:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {'type': 'game_message', 'event_type': 'match_cancelled', 'state': {}}
+            )
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -87,8 +93,10 @@ class GameConsumer(AsyncWebsocketConsumer):
                             state["players"][username]["visible_cards"].pop()
                     elif powerup == 5: # Target override
                         if not state["players"][username]["target_override_used"]:
-                            state["target_number"] = random.choice([19, 21, 28])
-                            state["players"][username]["target_override_used"] = True
+                            target_choice = data.get('target_choice', 21)
+                            if target_choice in [19, 21, 28]:
+                                state["target_number"] = target_choice
+                                state["players"][username]["target_override_used"] = True
                     
                     state = GameEngine.check_round_end(state)
                     await self.save_state(match, state)
@@ -109,9 +117,55 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def save_state(self, match, state):
+        if state["status"] == "finished" and match.status != "finished":
+            self.process_match_end_sync(match, state)
         match.state = state
         match.status = state["status"]
         match.save()
+
+    def process_match_end_sync(self, match, state):
+        if match.mode != 'ranked':
+            return
+            
+        p1 = match.player1.profile
+        p2 = match.player2.profile
+        
+        p1_state = state["players"][match.player1.username]
+        p2_state = state["players"][match.player2.username]
+        
+        K = 32
+        e1 = 1 / (1 + 10 ** ((p2.rating - p1.rating) / 400))
+        e2 = 1 / (1 + 10 ** ((p1.rating - p2.rating) / 400))
+        
+        if p1_state["lives"] > 0 and p2_state["lives"] <= 0:
+            s1, s2 = 1, 0
+            p1.ranked_wins += 1
+            p2.losses += 1
+        elif p2_state["lives"] > 0 and p1_state["lives"] <= 0:
+            s1, s2 = 0, 1
+            p2.ranked_wins += 1
+            p1.losses += 1
+        else:
+            s1, s2 = 0.5, 0.5
+            
+        p1.rating = int(p1.rating + K * (s1 - e1))
+        p2.rating = int(p2.rating + K * (s2 - e2))
+        
+        p1.save()
+        p2.save()
+
+    @sync_to_async
+    def handle_disconnect(self):
+        try:
+            match = Match.objects.get(id=self.match_id)
+            if match.status == 'in_progress':
+                if match.mode == 'casual':
+                    match.status = 'finished'
+                    match.save()
+                    return True
+        except Match.DoesNotExist:
+            pass
+        return False
 
     async def broadcast_state(self, state, event_type):
         await self.channel_layer.group_send(

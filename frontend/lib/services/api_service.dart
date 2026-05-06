@@ -13,20 +13,35 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> createMatch(String username) async {
+  /// Find a match in the given mode ('casual' or 'ranked').
+  /// Returns the match_id and status. If no opponent is ready yet,
+  /// the match will be in 'waiting' state; the caller should poll or
+  /// rely on the WebSocket start_game event.
+  static Future<Map<String, dynamic>> findMatch(String username, String mode) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/match/create/'),
+      Uri.parse('$baseUrl/match/find/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'mode': mode}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Create a private lobby and get back a join_code.
+  static Future<Map<String, dynamic>> createLobby(String username) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/lobby/create/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username}),
     );
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> joinMatch(String username, String matchId) async {
+  /// Join a private lobby using a 6-character code.
+  static Future<Map<String, dynamic>> joinLobby(String username, String joinCode) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/match/join/'),
+      Uri.parse('$baseUrl/lobby/join/'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'match_id': matchId}),
+      body: jsonEncode({'username': username, 'join_code': joinCode}),
     );
     return jsonDecode(response.body);
   }
