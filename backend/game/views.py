@@ -2,6 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from .models import Match, PlayerProfile
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 import random
 import string
 
@@ -53,6 +55,14 @@ def join_lobby(request):
         return Response({'match_id': match.id, 'status': match.status})
     return Response({'error': 'Cannot join own match'}, status=400)
 
+def _notify_player_joined(match_id):
+    """Broadcast player_joined to the match's WebSocket group."""
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'match_{match_id}',
+        {'type': 'game_message', 'event_type': 'player_joined', 'state': {}}
+    )
+
 @api_view(['POST'])
 def find_match(request):
     username = request.data.get('username')
@@ -72,9 +82,12 @@ def find_match(request):
                 m.player2 = user
                 m.status = 'in_progress'
                 m.save()
+                print(f"[HTTP] Ranked Match Found: {m.id} for {username}")
+                _notify_player_joined(m.id)
                 return Response({'match_id': m.id, 'status': m.status})
         
         match = Match.objects.create(player1=user, mode='ranked')
+        print(f"[HTTP] Ranked Match Created: {match.id} for {username}")
         return Response({'match_id': match.id, 'status': match.status})
     else:
         match = waiting_matches.first()
@@ -82,7 +95,10 @@ def find_match(request):
             match.player2 = user
             match.status = 'in_progress'
             match.save()
+            print(f"[HTTP] Casual Match Found: {match.id} for {username}")
+            _notify_player_joined(match.id)
             return Response({'match_id': match.id, 'status': match.status})
         
         match = Match.objects.create(player1=user, mode='casual')
+        print(f"[HTTP] Casual Match Created: {match.id} for {username}")
         return Response({'match_id': match.id, 'status': match.status})

@@ -6,22 +6,37 @@ class WebSocketService {
   WebSocketChannel? _channel;
   Function(Map<String, dynamic>)? onStateUpdated;
   VoidCallback? onMatchCancelled;
+  VoidCallback? onPlayerJoined;
+  VoidCallback? onConnected;
+  Function(dynamic)? onError;
 
-  void connect(String matchId) {
-    _channel = WebSocketChannel.connect(
-      Uri.parse('wss://card-clash-backend-1o5q.onrender.com/ws/match/$matchId/'),
+  void connect(String matchId, String username) {
+    // Pass username in query string to help backend identify the connection
+    final uri = Uri.parse('wss://card-clash-backend-1o5q.onrender.com/ws/match/$matchId/?username=$username');
+    _channel = WebSocketChannel.connect(uri);
+
+    onConnected?.call();
+
+    _channel!.stream.listen(
+      (message) {
+        final data = jsonDecode(message);
+        final event = data['event'] as String?;
+
+        if (event == 'match_cancelled') {
+          onMatchCancelled?.call();
+        } else if (event == 'player_joined') {
+          onPlayerJoined?.call();
+        } else if (data['state'] != null && onStateUpdated != null) {
+          onStateUpdated!(data['state'] as Map<String, dynamic>);
+        }
+      },
+      onError: (err) {
+        onError?.call(err);
+      },
+      onDone: () {
+        // Handle closure if needed
+      },
     );
-
-    _channel!.stream.listen((message) {
-      final data = jsonDecode(message);
-      final event = data['event'] as String?;
-
-      if (event == 'match_cancelled') {
-        onMatchCancelled?.call();
-      } else if (data['state'] != null && onStateUpdated != null) {
-        onStateUpdated!(data['state'] as Map<String, dynamic>);
-      }
-    });
   }
 
   void sendAction(String action, String username, [int? powerup]) {
