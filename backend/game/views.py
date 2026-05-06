@@ -102,3 +102,14 @@ def find_match(request):
         match = Match.objects.create(player1=user, mode='casual')
         print(f"[HTTP] Casual Match Created: {match.id} for {username}")
         return Response({'match_id': match.id, 'status': match.status})
+
+@api_view(['GET'])
+def match_status(request, match_id):
+    try:
+        match = Match.objects.get(id=match_id)
+        return Response({
+            'status': match.status,
+            'has_state': bool(match.state and 'players' in match.state)
+        })
+    except Match.DoesNotExist:
+        return Response({'error': 'Match not found'}, status=404)

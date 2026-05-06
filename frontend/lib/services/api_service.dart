@@ -45,4 +45,12 @@ class ApiService {
     );
     return jsonDecode(response.body);
   }
+
+  /// Get the current status of a match.
+  static Future<Map<String, dynamic>> getMatchStatus(String matchId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/match/$matchId/status/'),
+    );
+    return jsonDecode(response.body);
+  }
 }
