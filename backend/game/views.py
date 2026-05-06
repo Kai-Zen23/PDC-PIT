@@ -82,7 +82,6 @@ def find_match(request):
                 m.player2 = user
                 m.status = 'in_progress'
                 m.save()
-<<<<<<< HEAD
                 print(f"[HTTP] Ranked Match Found: {m.id} for {username}", flush=True)
                 _notify_player_joined(m.id)
                 return Response({'match_id': m.id, 'status': m.status})
