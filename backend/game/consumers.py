@@ -31,10 +31,17 @@ class GameConsumer(AsyncWebsocketConsumer):
                 )
             else:
                 # Game already running — send current state to the newly connected client
-                await self.send(text_data=json.dumps({
-                    'event': 'game_start',
-                    'state': match.state
-                }))
+                if match.state and 'players' in match.state:
+                    await self.send(text_data=json.dumps({
+                        'event': 'game_start',
+                        'state': match.state
+                    }))
+                else:
+                    # State exists but is empty/invalid — treat as joined but not started
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {'type': 'game_message', 'event_type': 'player_joined', 'state': {}}
+                    )
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
