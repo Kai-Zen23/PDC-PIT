@@ -14,6 +14,8 @@ class _GameScreenState extends State<GameScreen> {
   final WebSocketService _wsService = WebSocketService();
   Map<String, dynamic>? _gameState;
   bool _cancelled = false;
+  bool _wsConnected = false;
+  String? _wsError;
 
   // Powerup name map
   static const _powerupNames = {
@@ -27,14 +29,27 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    final matchId = Provider.of<GameState>(context, listen: false).matchId!;
+    final gs = Provider.of<GameState>(context, listen: false);
+    final matchId = gs.matchId!;
+    final username = gs.username!;
+
     _wsService.onStateUpdated = (state) {
       setState(() { _gameState = state; });
     };
     _wsService.onMatchCancelled = () {
       setState(() { _cancelled = true; });
     };
-    _wsService.connect(matchId);
+    _wsService.onConnected = () {
+      setState(() { _wsConnected = true; _wsError = null; });
+    };
+    _wsService.onError = (err) {
+      setState(() { _wsError = err.toString(); });
+    };
+    // When opponent joins (or we join an already-waiting match), auto-start.
+    _wsService.onPlayerJoined = () {
+      _wsService.sendAction('start_game', username);
+    };
+    _wsService.connect(matchId, username);
   }
 
   @override
@@ -164,11 +179,27 @@ class _GameScreenState extends State<GameScreen> {
               const CircularProgressIndicator(),
               const SizedBox(height: 24),
               const Text('Waiting for both players...', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _startGame,
-                child: const Text('Start Game'),
+              const SizedBox(height: 8),
+              Text(
+                _wsConnected ? 'Connected to Server ✅' : 'Connecting...',
+                style: TextStyle(color: _wsConnected ? Colors.greenAccent : Colors.orangeAccent, fontSize: 12),
               ),
+              if (_wsError != null) ...[
+                const SizedBox(height: 8),
+                Text('Error: $_wsError', style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+              ],
+              const SizedBox(height: 48),
+              if (_wsConnected)
+                ElevatedButton.icon(
+                  onPressed: _startGame,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start Match Manually'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white10,
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white24),
+                  ),
+                ),
             ],
           ),
         ),
