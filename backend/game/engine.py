@@ -54,10 +54,18 @@ class GameEngine:
                 if len(state["deck"]) < 2:
                     state["deck"] = list(range(1, 12))
                     random.shuffle(state["deck"])
-                p["visible_cards"] = [state["deck"].pop()]
-                p["hidden_cards"] = [state["deck"].pop()]
-                if sum(p["visible_cards"]) + sum(p["hidden_cards"]) <= state["target_number"]:
+                
+                card1 = state["deck"].pop()
+                card2 = state["deck"].pop()
+                
+                if card1 + card2 <= state["target_number"]:
+                    p["visible_cards"] = [card1]
+                    p["hidden_cards"] = [card2]
                     break
+                else:
+                    # Put back and reshuffle if it somehow exceeds (safety)
+                    state["deck"].extend([card1, card2])
+                    random.shuffle(state["deck"])
                     
         # Reset turn to p1 at start of round
         state["current_turn"] = state["p1"]
