@@ -82,12 +82,12 @@ def find_match(request):
                 m.player2 = user
                 m.status = 'in_progress'
                 m.save()
-                print(f"[HTTP] Ranked Match Found: {m.id} for {username}")
+                print(f"[HTTP] Ranked Match Found: {m.id} for {username}", flush=True)
                 _notify_player_joined(m.id)
                 return Response({'match_id': m.id, 'status': m.status})
         
         match = Match.objects.create(player1=user, mode='ranked')
-        print(f"[HTTP] Ranked Match Created: {match.id} for {username}")
+        print(f"[HTTP] Ranked Match Created: {match.id} for {username}", flush=True)
         return Response({'match_id': match.id, 'status': match.status})
     else:
         match = waiting_matches.first()
@@ -95,12 +95,12 @@ def find_match(request):
             match.player2 = user
             match.status = 'in_progress'
             match.save()
-            print(f"[HTTP] Casual Match Found: {match.id} for {username}")
+            print(f"[HTTP] Casual Match Found: {match.id} for {username}", flush=True)
             _notify_player_joined(match.id)
             return Response({'match_id': match.id, 'status': match.status})
         
         match = Match.objects.create(player1=user, mode='casual')
-        print(f"[HTTP] Casual Match Created: {match.id} for {username}")
+        print(f"[HTTP] Casual Match Created: {match.id} for {username}", flush=True)
         return Response({'match_id': match.id, 'status': match.status})
 
 @api_view(['GET'])
@@ -112,4 +112,6 @@ def match_status(request, match_id):
             'has_state': bool(match.state and 'players' in match.state)
         })
     except Match.DoesNotExist:
-        return Response({'error': 'Match not found'}, status=404)
+        all_matches = list(Match.objects.values_list('id', flat=True))
+        print(f"[HTTP] Match {match_id} not found! Existing matches in DB: {all_matches}")
+        return Response({'error': 'Match not found', 'existing_matches': all_matches}, status=404)
