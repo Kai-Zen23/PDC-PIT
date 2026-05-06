@@ -7,7 +7,7 @@ class WebSocketService {
 
   void connect(String matchId) {
     _channel = WebSocketChannel.connect(
-      Uri.parse('ws://127.0.0.1:8000/ws/match/\$matchId/'),
+      Uri.parse('wss://card-clash-backend-1o5q.onrender.com/ws/match/$matchId/'),
     );
 
     _channel!.stream.listen((message) {

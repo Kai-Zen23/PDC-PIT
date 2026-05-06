@@ -6,7 +6,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> login(String username) async {
     final response = await http.post(
-      Uri.parse('\$baseUrl/login/'),
+      Uri.parse('$baseUrl/login/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username}),
     );
@@ -15,7 +15,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> createMatch(String username) async {
     final response = await http.post(
-      Uri.parse('\$baseUrl/match/create/'),
+      Uri.parse('$baseUrl/match/create/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username}),
     );
@@ -24,7 +24,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> joinMatch(String username, String matchId) async {
     final response = await http.post(
-      Uri.parse('\$baseUrl/match/join/'),
+      Uri.parse('$baseUrl/match/join/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'match_id': matchId}),
     );
