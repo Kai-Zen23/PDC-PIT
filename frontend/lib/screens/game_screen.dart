@@ -119,6 +119,50 @@ class _GameScreenState extends State<GameScreen> {
     _wsService.sendAction('stand', username);
   }
 
+  void _showGameMenu(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1B4B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.flag_outlined, color: Colors.white70),
+            SizedBox(width: 8),
+            Text('Game Menu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to surrender and exit to the lobby? This will count as a loss.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.exit_to_app),
+            label: const Text('Surrender & Exit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx); // close dialog
+              _wsService.disconnect();
+              _statusTimer?.cancel();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const LobbyScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _usePowerup(int powerupId) {
     if (powerupId == 5) {
       _showTargetOverrideDialog();
@@ -295,14 +339,21 @@ class _GameScreenState extends State<GameScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Round ${state['round']} · Target ${state['target_number']}'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 4),
             child: Chip(
               label: Text(_modeLabel(mode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               backgroundColor: _modeColor(mode).withValues(alpha: 0.25),
               side: BorderSide(color: _modeColor(mode)),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            tooltip: 'Menu',
+            onPressed: () => _showGameMenu(context),
           ),
         ],
       ),
