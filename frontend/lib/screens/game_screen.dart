@@ -305,136 +305,159 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Turn banner
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            color: isMyTurn
-                ? const Color(0xFF059669).withValues(alpha: 0.3)
-                : Colors.orange.withValues(alpha: 0.2),
-            child: Text(
-              isMyTurn ? '⚡ Your Turn!' : '⏳ Opponent\'s Turn',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isMyTurn ? Colors.greenAccent : Colors.orangeAccent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            colors: [Color(0xFF1B5E20), Color(0xFF000000)],
+            center: Alignment.center,
+            radius: 1.0,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Turn banner
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              color: isMyTurn
+                  ? const Color(0xFF059669).withValues(alpha: 0.3)
+                  : Colors.orange.withValues(alpha: 0.2),
+              child: Text(
+                isMyTurn ? '⚡ Your Turn!' : '⏳ Opponent\'s Turn',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isMyTurn ? Colors.greenAccent : Colors.orangeAccent,
+                ),
               ),
             ),
-          ),
 
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  // Opponent Area
-                  _PlayerPanel(
-                    label: 'Opponent · $opponentUsername',
-                    lives: (opponent['lives'] as int?) ?? 0,
-                    visibleCards: List<int>.from(opponent['visible_cards'] ?? []),
-                    hiddenCount: (opponent['hidden_cards'] as List?)?.length ?? 0,
-                    hasStood: (opponent['has_stood'] as bool?) ?? false,
-                    isOpponent: true,
-                    color: Colors.redAccent,
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Central info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+            Expanded(
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _InfoChip(label: 'Target', value: '${state['target_number'] ?? 21}', color: Colors.purpleAccent),
-                      const SizedBox(width: 8),
-                      _InfoChip(label: 'Status', value: state['status'] ?? 'Active', color: Colors.white54),
+                      // Opponent Area
+                      _PlayerArea(
+                        label: 'Opponent · $opponentUsername',
+                        lives: (opponent['lives'] as int?) ?? 0,
+                        visibleCards: List<int>.from(opponent['visible_cards'] ?? []),
+                        hiddenCount: (opponent['hidden_cards'] as List?)?.length ?? 0,
+                        hasStood: (opponent['has_stood'] as bool?) ?? false,
+                        isOpponent: true,
+                        color: Colors.redAccent,
+                      ),
+
+                      // Central info
+                      Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _InfoChip(label: 'Target', value: '${state['target_number'] ?? 21}', color: Colors.amberAccent),
+                              const SizedBox(width: 8),
+                              _InfoChip(label: 'Status', value: state['status'] ?? 'Active', color: Colors.white),
+                            ],
+                          ),
+                          if (state['status'] == 'finished') ...[
+                            const SizedBox(height: 16),
+                            const Text('🏁 Match Over!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                              child: const Text('Back to Lobby'),
+                            ),
+                          ],
+                        ],
+                      ),
+
+                      // My Area
+                      Column(
+                        children: [
+                          _PlayerArea(
+                            label: 'You · $username',
+                            lives: (me['lives'] as int?) ?? 0,
+                            visibleCards: List<int>.from(me['visible_cards'] ?? []),
+                            hiddenCards: List<int>.from(me['hidden_cards'] ?? []),
+                            hasStood: (me['has_stood'] as bool?) ?? false,
+                            isOpponent: false,
+                            color: Colors.blueAccent,
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Action Buttons & Powerups
+                          if (isMyTurn && !(me['has_stood'] as bool) && state['status'] != 'finished')
+                            Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: _drawCard,
+                                      icon: const Icon(Icons.add_card),
+                                      label: const Text('DRAW'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black,
+                                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        elevation: 8,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: _stand,
+                                      icon: const Icon(Icons.pan_tool),
+                                      label: const Text('STAND'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        elevation: 8,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if ((me['powerups'] as List? ?? []).isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: (me['powerups'] as List? ?? []).map<Widget>((p) {
+                                      final id = (p as int?) ?? 0;
+                                      return OutlinedButton(
+                                        onPressed: () => _usePowerup(id),
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(color: Colors.amberAccent, width: 2),
+                                          backgroundColor: Colors.black45,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        ),
+                                        child: Text(
+                                          _powerupNames[id] ?? 'Power-up $id',
+                                          style: const TextStyle(fontSize: 13, color: Colors.amberAccent, fontWeight: FontWeight.bold),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ]
+                              ],
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-
-                  const SizedBox(height: 8),
-
-                  // My Area
-                  _PlayerPanel(
-                    label: 'You · $username',
-                    lives: (me['lives'] as int?) ?? 0,
-                    visibleCards: List<int>.from(me['visible_cards'] ?? []),
-                    hiddenCards: List<int>.from(me['hidden_cards'] ?? []),
-                    hasStood: (me['has_stood'] as bool?) ?? false,
-                    isOpponent: false,
-                    color: Colors.blueAccent,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Action Buttons
-                  if (isMyTurn && !(me['has_stood'] as bool))
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _drawCard,
-                          icon: const Icon(Icons.add_card),
-                          label: const Text('Draw'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7C3AED),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _stand,
-                          icon: const Icon(Icons.back_hand),
-                          label: const Text('Stand'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueGrey,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  // Power-ups
-                  if (isMyTurn && !((me['has_stood'] as bool?) ?? false) && (me['powerups'] as List? ?? []).isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Power-ups:', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: (me['powerups'] as List? ?? []).map<Widget>((p) {
-                        final id = (p as int?) ?? 0;
-                        return OutlinedButton(
-                          onPressed: () => _usePowerup(id),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFD97706)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          child: Text(
-                            _powerupNames[id] ?? 'Power-up $id',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFFD97706)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-
-                  if (state['status'] == 'finished') ...[
-                    const SizedBox(height: 16),
-                    const Text('🏁 Match Over!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back to Lobby'),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -444,7 +467,7 @@ class _GameScreenState extends State<GameScreen> {
 // Reusable Widgets
 // ---------------------------------------------------------------------------
 
-class _PlayerPanel extends StatelessWidget {
+class _PlayerArea extends StatelessWidget {
   final String label;
   final int lives;
   final List<int> visibleCards;
@@ -454,7 +477,7 @@ class _PlayerPanel extends StatelessWidget {
   final bool isOpponent;
   final Color color;
 
-  const _PlayerPanel({
+  const _PlayerArea({
     required this.label,
     required this.lives,
     required this.visibleCards,
@@ -470,92 +493,150 @@ class _PlayerPanel extends StatelessWidget {
     final total = visibleCards.fold<int>(0, (a, b) => a + b) +
         (hiddenCards?.fold<int>(0, (a, b) => a + b) ?? 0);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-              const Spacer(),
-              // Lives as hearts
-              Row(
-                children: List.generate(3, (i) => Icon(
-                  i < lives ? Icons.favorite : Icons.favorite_border,
-                  color: Colors.redAccent,
-                  size: 18,
-                )),
-              ),
-              if (hasStood) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text('STOOD', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ),
-              ],
-            ],
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (isOpponent) _buildInfoRow(),
+        if (isOpponent) const SizedBox(height: 16),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...visibleCards.map((c) => _PlayingCard(value: c, hidden: false)),
+            if (isOpponent)
+              ...List.generate(
+                hiddenCount ?? 0,
+                (_) => const _PlayingCard(value: 0, hidden: true),
+              )
+            else
+              ...(hiddenCards ?? []).map((c) => _PlayingCard(value: c, hidden: false)),
+          ],
+        ),
+        if (!isOpponent) const SizedBox(height: 16),
+        if (!isOpponent) _buildInfoRow(),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
+        const SizedBox(width: 16),
+        Row(
+          children: List.generate(3, (i) => Icon(
+            i < lives ? Icons.favorite : Icons.favorite_border,
+            color: Colors.redAccent,
+            size: 18,
+          )),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black45,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              // Visible cards
-              ...visibleCards.map((c) => _CardBadge(value: c, hidden: false)),
-              // Hidden cards
-              if (isOpponent)
-                ...List.generate(
-                  hiddenCount ?? 0,
-                  (_) => const _CardBadge(value: 0, hidden: true),
-                )
-              else
-                ...(hiddenCards ?? []).map((c) => _CardBadge(value: c, hidden: false)),
-              const Spacer(),
-              Text(
-                'Total: ${isOpponent ? "??" : total}',
-                style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
-              ),
-            ],
+          child: Text(
+            'Total: ${isOpponent ? "??" : total}',
+            style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (hasStood) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.orangeAccent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orangeAccent),
+            ),
+            child: const Text('STOOD', style: TextStyle(fontSize: 11, color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
           ),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _CardBadge extends StatelessWidget {
+class _PlayingCard extends StatelessWidget {
   final int value;
   final bool hidden;
-  const _CardBadge({required this.value, required this.hidden});
+  const _PlayingCard({required this.value, required this.hidden});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      width: 36,
-      height: 48,
-      decoration: BoxDecoration(
-        color: hidden ? Colors.grey.shade800 : const Color(0xFF1E1B4B),
-        border: Border.all(color: hidden ? Colors.grey : Colors.purpleAccent, width: 1.5),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        hidden ? '?' : '$value',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: hidden ? Colors.grey : Colors.white,
+    if (hidden) {
+      return Container(
+        width: 70,
+        height: 100,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: Colors.white24, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 4,
+              offset: const Offset(2, 2),
+            )
+          ],
         ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.remove_red_eye_outlined, color: Colors.white24, size: 28),
+      );
+    }
+
+    return Container(
+      width: 70,
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 4,
+            offset: const Offset(2, 2),
+          )
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 4,
+            left: 6,
+            child: Text(
+              '$value',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ),
+          Center(
+            child: Text(
+              '$value',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.black),
+            ),
+          ),
+          Positioned(
+            bottom: 4,
+            right: 6,
+            child: Transform.rotate(
+              angle: 3.14159,
+              child: Text(
+                '$value',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -570,16 +651,17 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white10,
+        color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
       ),
       child: RichText(
         text: TextSpan(
           children: [
-            TextSpan(text: '$label: ', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            TextSpan(text: value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+            TextSpan(text: '$label: ', style: const TextStyle(color: Colors.white54, fontSize: 14)),
+            TextSpan(text: value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
           ],
         ),
       ),
