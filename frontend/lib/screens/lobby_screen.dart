@@ -14,7 +14,7 @@ class LobbyScreen extends StatefulWidget {
 
 class _LobbyScreenState extends State<LobbyScreen> {
   bool _searching = false;
-  String? _searchMode;
+  bool _autoQueued = false;
   final TextEditingController _codeController = TextEditingController();
 
   @override
@@ -25,7 +25,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Future<void> _findMatch(String mode) async {
     final gs = Provider.of<GameState>(context, listen: false);
-    setState(() { _searching = true; _searchMode = mode; });
+    if (mounted) {
+      setState(() {
+        _searching = true;
+      });
+    }
     try {
       final res = await ApiService.findMatch(gs.username!, mode);
       if (res.containsKey('match_id')) {
@@ -39,7 +43,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
     } catch (e) {
       _showError(e is ApiException ? e.message : 'Network error. Please retry.');
     } finally {
-      if (mounted) setState(() { _searching = false; _searchMode = null; });
+      if (mounted) {
+        setState(() {
+          _searching = false;
+        });
+      }
     }
   }
 
@@ -274,6 +282,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_autoQueued) {
+      _autoQueued = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _findMatch('casual');
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final gs = Provider.of<GameState>(context);
 
@@ -295,9 +314,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Header
-                    const Text('🃏 Card Clash 21', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
+                    const Text('🃏 Card Clash 21', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Finding an online match...',
+                      style: TextStyle(color: Colors.white70, fontSize: 14, letterSpacing: 0.5),
+                    ),
 
                     // Player badge
                     Container(
@@ -322,54 +344,44 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 32),
-
-                    // Ranked
-                    _ModeCard(
-                      icon: '🥇',
-                      title: 'Ranked Match',
-                      subtitle: 'Skill-based matching · Elo rating changes · No early quit',
-                      color: const Color(0xFFD97706),
-                      loading: _searching && _searchMode == 'ranked',
-                      onTap: _searching ? null : () => _findMatch('ranked'),
+                    const SizedBox(height: 30),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Column(
+                        children: [
+                          const SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.3),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            _searching ? 'Looking for an opponent now...' : 'Matchmaking paused',
+                            style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'You will automatically enter the game once a match is found.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Casual
-                    _ModeCard(
-                      icon: '🎮',
-                      title: 'Casual Match',
-                      subtitle: 'No rating impact · Relaxed rules · Great for learning',
-                      color: const Color(0xFF059669),
-                      loading: _searching && _searchMode == 'casual',
-                      onTap: _searching ? null : () => _findMatch('casual'),
-                    ),
-                    const SizedBox(height: 32),
-
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 16),
-
-                    // Private lobby buttons
+                    const SizedBox(height: 22),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _searching ? null : _createLobby,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create Lobby'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: Colors.white38),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _searching ? null : _showJoinDialog,
-                            icon: const Icon(Icons.login),
-                            label: const Text('Join Lobby'),
+                            onPressed: _searching ? null : () => _findMatch('casual'),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry Matchmaking'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               side: const BorderSide(color: Colors.white38),
@@ -379,84 +391,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         ),
                       ],
                     ),
-
-                    if (_searching) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Searching for ${_searchMode == 'ranked' ? 'ranked' : 'casual'} opponent...',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() { _searching = false; _searchMode = null; }),
-                        child: const Text('Cancel', style: TextStyle(color: Colors.redAccent)),
-                      ),
-                    ],
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Back', style: TextStyle(color: Colors.redAccent)),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeCard extends StatelessWidget {
-  final String icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final bool loading;
-  final VoidCallback? onTap;
-
-  const _ModeCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.loading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
-          borderRadius: BorderRadius.circular(16),
-          color: color.withValues(alpha: 0.08),
-        ),
-        child: Row(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 32)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: color)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                ],
-              ),
-            ),
-            if (loading)
-              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: color, strokeWidth: 2))
-            else
-              Icon(Icons.arrow_forward_ios, color: color, size: 16),
-          ],
         ),
       ),
     );
