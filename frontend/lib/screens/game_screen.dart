@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/websocket_service.dart';
 import '../services/api_service.dart';
+import 'lobby_screen.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -367,7 +368,14 @@ class _GameScreenState extends State<GameScreen> {
                             const Text('🏁 Match Over!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
                             const SizedBox(height: 12),
                             ElevatedButton(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () {
+                                _wsService.disconnect();
+                                _statusTimer?.cancel();
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const LobbyScreen()),
+                                );
+                              },
                               style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
                               child: const Text('Back to Lobby'),
                             ),
