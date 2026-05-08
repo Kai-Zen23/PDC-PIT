@@ -31,7 +31,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         );
       }
     } catch (e) {
-      _showError('Network error. Please retry.');
+      _showError(e is ApiException ? e.message : 'Network error. Please retry.');
     } finally {
       if (mounted) setState(() { _searching = false; _searchMode = null; });
     }
@@ -48,7 +48,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         _showCodeDialog(code, res['match_id'].toString());
       }
     } catch (e) {
-      _showError('Could not create lobby.');
+      _showError(e is ApiException ? e.message : 'Could not create lobby.');
     }
   }
 
@@ -123,10 +123,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
           MaterialPageRoute(builder: (_) => const GameScreen()),
         );
       } else {
-        _showError(res['error'] ?? 'Invalid code.');
+        _showError('Invalid lobby response. Please try again.');
       }
     } catch (e) {
-      _showError('Could not join lobby.');
+      _showError(e is ApiException ? e.message : 'Could not join lobby.');
     }
   }
 

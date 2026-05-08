@@ -8,17 +8,23 @@ class WebSocketService {
   VoidCallback? onMatchCancelled;
   VoidCallback? onPlayerJoined;
   VoidCallback? onConnected;
+  VoidCallback? onDisconnected;
   Function(dynamic)? onError;
+  bool _hasConfirmedConnection = false;
 
   void connect(String matchId, String username) {
     // Pass username in query string to help backend identify the connection
     final uri = Uri.parse('wss://card-clash-backend-1o5q.onrender.com/ws/match/$matchId/?username=$username');
     _channel = WebSocketChannel.connect(uri);
-
-    onConnected?.call();
+    _hasConfirmedConnection = false;
 
     _channel!.stream.listen(
       (message) {
+        if (!_hasConfirmedConnection) {
+          _hasConfirmedConnection = true;
+          onConnected?.call();
+        }
+
         final data = jsonDecode(message);
         final event = data['event'] as String?;
 
@@ -34,7 +40,8 @@ class WebSocketService {
         onError?.call(err);
       },
       onDone: () {
-        // Handle closure if needed
+        onDisconnected?.call();
+        _hasConfirmedConnection = false;
       },
     );
   }
@@ -67,5 +74,7 @@ class WebSocketService {
 
   void disconnect() {
     _channel?.sink.close();
+    _channel = null;
+    _hasConfirmedConnection = false;
   }
 }

@@ -20,6 +20,8 @@ class _GameScreenState extends State<GameScreen> {
   bool _wsConnected = false;
   String? _wsError;
   Timer? _statusTimer;
+  Timer? _turnTimer;
+  int _turnSecondsLeft = 10;
 
   // Powerup name map
   static const _powerupNames = {
@@ -38,16 +40,34 @@ class _GameScreenState extends State<GameScreen> {
     final username = gs.username!;
 
     _wsService.onStateUpdated = (state) {
+      if (!mounted) return;
+      final gs = Provider.of<GameState>(context, listen: false);
+      final username = gs.username!;
+      final isMyTurn = state['current_turn'] == username;
+      final wasMyTurn = _gameState != null && _gameState!['current_turn'] == username;
       setState(() { _gameState = state; });
+      // Start/reset turn timer only when it becomes my turn
+      if (isMyTurn && !wasMyTurn) {
+        _startTurnTimer(username);
+      } else if (!isMyTurn) {
+        _cancelTurnTimer();
+      }
     };
     _wsService.onMatchCancelled = () {
+      if (!mounted) return;
       setState(() { _cancelled = true; });
     };
     _wsService.onConnected = () {
+      if (!mounted) return;
       setState(() { _wsConnected = true; _wsError = null; });
     };
     _wsService.onError = (err) {
+      if (!mounted) return;
       setState(() { _wsError = err.toString(); });
+    };
+    _wsService.onDisconnected = () {
+      if (!mounted) return;
+      setState(() { _wsConnected = false; });
     };
     // When opponent joins (or we join an already-waiting match), auto-start.
     _wsService.onPlayerJoined = () {
@@ -80,8 +100,29 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _statusTimer?.cancel();
+    _turnTimer?.cancel();
     _wsService.disconnect();
     super.dispose();
+  }
+
+  void _startTurnTimer(String username) {
+    _cancelTurnTimer();
+    setState(() { _turnSecondsLeft = 10; });
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() { _turnSecondsLeft--; });
+      if (_turnSecondsLeft <= 0) {
+        timer.cancel();
+        // Auto-stand when time runs out
+        _wsService.sendAction('stand', username);
+      }
+    });
+  }
+
+  void _cancelTurnTimer() {
+    _turnTimer?.cancel();
+    _turnTimer = null;
+    if (mounted) setState(() { _turnSecondsLeft = 10; });
   }
 
   void _startGame() async {
@@ -103,7 +144,15 @@ class _GameScreenState extends State<GameScreen> {
         return;
       }
     } catch (e) {
-      // Ignore network errors and try anyway
+      if (mounted) {
+        final msg = e is ApiException ? e.message : 'Unable to verify match status. Trying anyway...';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.orangeAccent,
+          ),
+        );
+      }
     }
 
     _wsService.sendAction('start_game', username);
@@ -367,21 +416,52 @@ class _GameScreenState extends State<GameScreen> {
         ),
         child: Column(
           children: [
-            // Turn banner
+            // Turn banner with countdown timer
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               color: isMyTurn
                   ? const Color(0xFF059669).withValues(alpha: 0.3)
                   : Colors.orange.withValues(alpha: 0.2),
-              child: Text(
-                isMyTurn ? '⚡ Your Turn!' : '⏳ Opponent\'s Turn',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isMyTurn ? Colors.greenAccent : Colors.orangeAccent,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isMyTurn ? '\u26a1 Your Turn!' : '\u23f3 Opponent\'s Turn',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isMyTurn ? Colors.greenAccent : Colors.orangeAccent,
+                    ),
+                  ),
+                  if (isMyTurn) ...[
+                    const SizedBox(width: 16),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _turnSecondsLeft <= 3
+                            ? Colors.redAccent.withValues(alpha: 0.8)
+                            : Colors.white12,
+                        border: Border.all(
+                          color: _turnSecondsLeft <= 3 ? Colors.redAccent : Colors.white38,
+                          width: 2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$_turnSecondsLeft',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _turnSecondsLeft <= 3 ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 
@@ -549,9 +629,6 @@ class _PlayerArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = visibleCards.fold<int>(0, (a, b) => a + b) +
-        (hiddenCards?.fold<int>(0, (a, b) => a + b) ?? 0);
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -579,6 +656,9 @@ class _PlayerArea extends StatelessWidget {
   }
 
   Widget _buildInfoRow() {
+    final total = visibleCards.fold<int>(0, (a, b) => a + b) +
+        (hiddenCards?.fold<int>(0, (a, b) => a + b) ?? 0);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

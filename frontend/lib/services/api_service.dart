@@ -1,8 +1,39 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+class ApiException implements Exception {
+  final String message;
+  const ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static const String baseUrl = 'https://card-clash-backend-1o5q.onrender.com/api';
+
+  static Map<String, dynamic> _decodeResponse(http.Response response) {
+    Map<String, dynamic> body;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        body = decoded;
+      } else {
+        throw const ApiException('Unexpected server response format.');
+      }
+    } catch (_) {
+      throw const ApiException('Unable to read server response.');
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return body;
+    }
+
+    final message = body['error']?.toString() ??
+        body['detail']?.toString() ??
+        'Request failed (${response.statusCode}).';
+    throw ApiException(message);
+  }
 
   static Future<Map<String, dynamic>> login(String username) async {
     final response = await http.post(
@@ -10,7 +41,7 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username}),
     );
-    return jsonDecode(response.body);
+    return _decodeResponse(response);
   }
 
   /// Find a match in the given mode ('casual' or 'ranked').
@@ -23,7 +54,7 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'mode': mode}),
     );
-    return jsonDecode(response.body);
+    return _decodeResponse(response);
   }
 
   /// Create a private lobby and get back a join_code.
@@ -33,7 +64,7 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username}),
     );
-    return jsonDecode(response.body);
+    return _decodeResponse(response);
   }
 
   /// Join a private lobby using a 6-character code.
@@ -43,7 +74,7 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'join_code': joinCode}),
     );
-    return jsonDecode(response.body);
+    return _decodeResponse(response);
   }
 
   /// Get the current status of a match.
@@ -51,6 +82,6 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/match/$matchId/status/'),
     );
-    return jsonDecode(response.body);
+    return _decodeResponse(response);
   }
 }

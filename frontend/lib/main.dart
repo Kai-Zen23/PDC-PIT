@@ -86,7 +86,8 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() { _error = 'Login failed. Try again.'; });
       }
     } catch (e) {
-      setState(() { _error = 'Network error. Check connection.'; });
+      final message = e is ApiException ? e.message : 'Network error. Check connection.';
+      setState(() { _error = message; });
     } finally {
       if (mounted) setState(() { _loading = false; });
     }

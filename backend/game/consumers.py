@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from .models import Match
@@ -9,7 +10,9 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.match_id = self.scope['url_route']['kwargs']['match_id']
         self.room_group_name = f'match_{self.match_id}'
-        self.username = self.scope.get('query_string', b'').decode()
+        query_string = self.scope.get('query_string', b'').decode()
+        query_params = parse_qs(query_string)
+        self.username = (query_params.get('username') or [''])[0]
 
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -17,7 +20,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
         await self.accept()
         
-        print(f"[WS] User connected to match {self.match_id}. Query: {self.scope.get('query_string', b'').decode()}")
+        print(f"[WS] User connected to match {self.match_id}. Username: {self.username or 'unknown'}")
 
         # Auto-start: if match is in_progress with both players but no game state yet,
         # broadcast player_joined so the frontend knows to trigger start_game.
