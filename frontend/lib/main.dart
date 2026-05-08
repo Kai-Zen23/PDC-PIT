@@ -217,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: _MenuButton(
-                          label: _loading ? 'CONNECTING...' : 'PLAY NOW',
+                          label: _loading ? 'CONNECTING...' : 'Join Now',
                           onTap: _loading ? null : _login,
                           primary: true,
                         ),
