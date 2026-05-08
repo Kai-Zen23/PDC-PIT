@@ -23,15 +23,6 @@ class _GameScreenState extends State<GameScreen> {
   Timer? _turnTimer;
   int _turnSecondsLeft = 10;
 
-  // Powerup name map
-  static const _powerupNames = {
-    1: '🎲 Remove Random Opponent Card',
-    2: '✂️ Remove Opponent\'s Last Card',
-    3: '🗑️ Remove My Last Card',
-    4: '💨 Remove My Last 2 Cards',
-    5: '🎯 Target Override',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -384,221 +375,289 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final isMyTurn = state['current_turn'] == username;
+    final target = state['target_number']?.toString() ?? '21';
+    final myPowerups = List<int>.from(me['powerups'] ?? []);
+    final myTotal = List<int>.from(me['visible_cards'] ?? []).fold<int>(0, (a, b) => a + b) +
+        List<int>.from(me['hidden_cards'] ?? []).fold<int>(0, (a, b) => a + b);
+    final opponentVisibleTotal = List<int>.from(opponent['visible_cards'] ?? []).fold<int>(0, (a, b) => a + b);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Round ${state['round']} · Target ${state['target_number']}'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Chip(
-              label: Text(_modeLabel(mode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              backgroundColor: _modeColor(mode).withValues(alpha: 0.25),
-              side: BorderSide(color: _modeColor(mode)),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            tooltip: 'Menu',
-            onPressed: () => _showGameMenu(context),
-          ),
-        ],
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
-            colors: [Color(0xFF1B5E20), Color(0xFF000000)],
-            center: Alignment.center,
-            radius: 1.0,
+            colors: [Color(0xFF10131D), Color(0xFF08090F), Color(0xFF07070B)],
+            center: Alignment(0, -0.2),
+            radius: 1.12,
           ),
         ),
-        child: Column(
-          children: [
-            // Turn banner with countdown timer
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              color: isMyTurn
-                  ? const Color(0xFF059669).withValues(alpha: 0.3)
-                  : Colors.orange.withValues(alpha: 0.2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    isMyTurn ? '\u26a1 Your Turn!' : '\u23f3 Opponent\'s Turn',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isMyTurn ? Colors.greenAccent : Colors.orangeAccent,
-                    ),
-                  ),
-                  if (isMyTurn) ...[
-                    const SizedBox(width: 16),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _turnSecondsLeft <= 3
-                            ? Colors.redAccent.withValues(alpha: 0.8)
-                            : Colors.white12,
-                        border: Border.all(
-                          color: _turnSecondsLeft <= 3 ? Colors.redAccent : Colors.white38,
-                          width: 2,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: const Color(0x33212433),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Color(0x335D6590)),
                         ),
                       ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$_turnSecondsLeft',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: _turnSecondsLeft <= 3 ? Colors.white : Colors.white70,
-                        ),
+                      onPressed: () {
+                        _wsService.disconnect();
+                        _statusTimer?.cancel();
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LobbyScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.arrow_back, size: 16),
+                      label: const Text('Back'),
+                    ),
+                    const Spacer(),
+                    Chip(
+                      label: Text(_modeLabel(mode), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                      backgroundColor: _modeColor(mode).withValues(alpha: 0.2),
+                      side: BorderSide(color: _modeColor(mode).withValues(alpha: 0.6)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.white),
+                      tooltip: 'Menu',
+                      onPressed: () => _showGameMenu(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _PlayerArea(
+                  label: 'Opponent',
+                  username: opponentUsername,
+                  lives: (opponent['lives'] as int?) ?? 0,
+                  visibleCards: List<int>.from(opponent['visible_cards'] ?? []),
+                  hiddenCount: (opponent['hidden_cards'] as List?)?.length ?? 0,
+                  hasStood: (opponent['has_stood'] as bool?) ?? false,
+                  isOpponent: true,
+                  color: const Color(0xFFA15AFB),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 150,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xAA141723),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0x554F5AC0)),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x663D2A82), blurRadius: 20),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.adjust, color: Color(0xFF9D5DFF), size: 16),
+                          const SizedBox(height: 4),
+                          const Text('TARGET', style: TextStyle(color: Color(0xFF9EA5B9), fontSize: 10, letterSpacing: 1)),
+                          const SizedBox(height: 3),
+                          Text(
+                            target,
+                            style: const TextStyle(
+                              color: Color(0xFFA965FF),
+                              fontSize: 44,
+                              fontWeight: FontWeight.w500,
+                              height: 1,
+                              shadows: [Shadow(color: Color(0x882A0E66), blurRadius: 20)],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 210,
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xAA171822),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0x334E577A)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('ACTION LOG', style: TextStyle(color: Color(0xFFAA8CFF), fontSize: 10, letterSpacing: 1)),
+                          const SizedBox(height: 5),
+                          Text('• ${state['status'] ?? 'Game active'}', style: const TextStyle(color: Color(0xFFBFC5D8), fontSize: 11)),
+                          Text(
+                            '• ${isMyTurn ? "Your turn ($_turnSecondsLeft)" : "Opponent turn"}',
+                            style: const TextStyle(color: Color(0xFFBFC5D8), fontSize: 11),
+                          ),
+                          Text(
+                            '• Visible total: $opponentVisibleTotal',
+                            style: const TextStyle(color: Color(0xFFBFC5D8), fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Opponent Area
-                      _PlayerArea(
-                        label: 'Opponent · $opponentUsername',
-                        lives: (opponent['lives'] as int?) ?? 0,
-                        visibleCards: List<int>.from(opponent['visible_cards'] ?? []),
-                        hiddenCount: (opponent['hidden_cards'] as List?)?.length ?? 0,
-                        hasStood: (opponent['has_stood'] as bool?) ?? false,
-                        isOpponent: true,
-                        color: Colors.redAccent,
-                      ),
-
-                      // Central info
-                      Column(
-                        children: [
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: _PlayerArea(
+                    label: 'Player',
+                    username: username,
+                    lives: (me['lives'] as int?) ?? 0,
+                    visibleCards: List<int>.from(me['visible_cards'] ?? []),
+                    hiddenCards: List<int>.from(me['hidden_cards'] ?? []),
+                    hasStood: (me['has_stood'] as bool?) ?? false,
+                    isOpponent: false,
+                    color: const Color(0xFF53D5FF),
+                    bottomChild: Column(
+                      children: [
+                        if (isMyTurn && !(me['has_stood'] as bool) && state['status'] != 'finished')
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _InfoChip(label: 'Target', value: '${state['target_number'] ?? 21}', color: Colors.amberAccent),
+                              Expanded(
+                                child: _BattleButton(
+                                  label: '+ DRAW',
+                                  filled: true,
+                                  onPressed: _drawCard,
+                                ),
+                              ),
                               const SizedBox(width: 8),
-                              _InfoChip(label: 'Status', value: state['status'] ?? 'Active', color: Colors.white),
+                              Expanded(
+                                child: _BattleButton(
+                                  label: '— STAND',
+                                  filled: false,
+                                  onPressed: _stand,
+                                ),
+                              ),
                             ],
                           ),
-                          if (state['status'] == 'finished') ...[
-                            const SizedBox(height: 16),
-                            const Text('🏁 Match Over!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: () {
-                                _wsService.disconnect();
-                                _statusTimer?.cancel();
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const LobbyScreen()),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
-                              child: const Text('Back to Lobby'),
-                            ),
-                          ],
-                        ],
-                      ),
-
-                      // My Area
-                      Column(
-                        children: [
-                          _PlayerArea(
-                            label: 'You · $username',
-                            lives: (me['lives'] as int?) ?? 0,
-                            visibleCards: List<int>.from(me['visible_cards'] ?? []),
-                            hiddenCards: List<int>.from(me['hidden_cards'] ?? []),
-                            hasStood: (me['has_stood'] as bool?) ?? false,
-                            isOpponent: false,
-                            color: Colors.blueAccent,
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Action Buttons & Powerups
-                          if (isMyTurn && !(me['has_stood'] as bool) && state['status'] != 'finished')
-                            Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: _drawCard,
-                                      icon: const Icon(Icons.add_card),
-                                      label: const Text('DRAW'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        foregroundColor: Colors.black,
-                                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        elevation: 8,
+                        if (myPowerups.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 60,
+                            child: Row(
+                              children: myPowerups.map((id) {
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                                    child: OutlinedButton(
+                                      onPressed: () => _usePowerup(id),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: const Color(0xCC0A0C13),
+                                        side: const BorderSide(color: Color(0x335AD7FF)),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(_powerupIcon(id), color: const Color(0xFF57D9FF), size: 14),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            _powerupShortName(id),
+                                            textAlign: TextAlign.center,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(color: Color(0xFF95DEFF), fontSize: 9),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                    ElevatedButton.icon(
-                                      onPressed: _stand,
-                                      icon: const Icon(Icons.pan_tool),
-                                      label: const Text('STAND'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        elevation: 8,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if ((me['powerups'] as List? ?? []).isNotEmpty) ...[
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    alignment: WrapAlignment.center,
-                                    children: (me['powerups'] as List? ?? []).map<Widget>((p) {
-                                      final id = (p as int?) ?? 0;
-                                      return OutlinedButton(
-                                        onPressed: () => _usePowerup(id),
-                                        style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.amberAccent, width: 2),
-                                          backgroundColor: Colors.black45,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        ),
-                                        child: Text(
-                                          _powerupNames[id] ?? 'Power-up $id',
-                                          style: const TextStyle(fontSize: 13, color: Colors.amberAccent, fontWeight: FontWeight.bold),
-                                        ),
-                                      );
-                                    }).toList(),
                                   ),
-                                ]
-                              ],
+                                );
+                              }).toList(),
                             ),
+                          ),
                         ],
-                      ),
-                    ],
+                        if (state['status'] == 'finished') ...[
+                          const SizedBox(height: 10),
+                          const Text(
+                            'MATCH OVER',
+                            style: TextStyle(color: Color(0xFFD0D6E9), fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          _BattleButton(
+                            label: 'BACK TO LOBBY',
+                            filled: true,
+                            onPressed: () {
+                              _wsService.disconnect();
+                              _statusTimer?.cancel();
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LobbyScreen()),
+                              );
+                            },
+                          ),
+                        ],
+                        if (!isMyTurn && state['status'] != 'finished')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Opponent turn... ${_wsConnected ? "" : "(reconnecting)"}',
+                              style: const TextStyle(color: Color(0xFF9EA5B9), fontSize: 11),
+                            ),
+                          ),
+                        if (_wsError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _wsError!,
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 10),
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Total: $myTotal',
+                          style: const TextStyle(color: Color(0xFF53D5FF), fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  IconData _powerupIcon(int id) {
+    switch (id) {
+      case 1:
+        return Icons.casino_outlined;
+      case 2:
+        return Icons.content_cut;
+      case 3:
+        return Icons.delete_outline;
+      case 4:
+        return Icons.layers_clear_outlined;
+      case 5:
+        return Icons.gps_fixed;
+      default:
+        return Icons.auto_awesome;
+    }
+  }
+
+  String _powerupShortName(int id) {
+    switch (id) {
+      case 1:
+        return 'Remove rand';
+      case 2:
+        return 'Swap card';
+      case 3:
+        return 'Remove own';
+      case 4:
+        return 'Double remove';
+      case 5:
+        return 'Override';
+      default:
+        return 'Power-up';
+    }
   }
 }
 
@@ -608,6 +667,7 @@ class _GameScreenState extends State<GameScreen> {
 
 class _PlayerArea extends StatelessWidget {
   final String label;
+  final String username;
   final int lives;
   final List<int> visibleCards;
   final List<int>? hiddenCards;
@@ -615,9 +675,11 @@ class _PlayerArea extends StatelessWidget {
   final bool hasStood;
   final bool isOpponent;
   final Color color;
+  final Widget? bottomChild;
 
   const _PlayerArea({
     required this.label,
+    required this.username,
     required this.lives,
     required this.visibleCards,
     this.hiddenCards,
@@ -625,78 +687,84 @@ class _PlayerArea extends StatelessWidget {
     required this.hasStood,
     required this.isOpponent,
     required this.color,
+    this.bottomChild,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (isOpponent) _buildInfoRow(),
-        if (isOpponent) const SizedBox(height: 16),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...visibleCards.map((c) => _PlayingCard(value: c, hidden: false)),
-            if (isOpponent)
-              ...List.generate(
-                hiddenCount ?? 0,
-                (_) => const _PlayingCard(value: 0, hidden: true),
-              )
-            else
-              ...(hiddenCards ?? []).map((c) => _PlayingCard(value: c, hidden: false)),
-          ],
-        ),
-        if (!isOpponent) const SizedBox(height: 16),
-        if (!isOpponent) _buildInfoRow(),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow() {
-    final total = visibleCards.fold<int>(0, (a, b) => a + b) +
-        (hiddenCards?.fold<int>(0, (a, b) => a + b) ?? 0);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
-        const SizedBox(width: 16),
-        Row(
-          children: List.generate(3, (i) => Icon(
-            i < lives ? Icons.favorite : Icons.favorite_border,
-            color: Colors.redAccent,
-            size: 18,
-          )),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black45,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            'Total: ${isOpponent ? "??" : total}',
-            style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.bold),
-          ),
-        ),
-        if (hasStood) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.orangeAccent.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orangeAccent),
-            ),
-            child: const Text('STOOD', style: TextStyle(fontSize: 11, color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
-          ),
+    final cardCount = visibleCards.length + (isOpponent ? (hiddenCount ?? 0) : (hiddenCards?.length ?? 0));
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xB3131620),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.65)),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 16),
         ],
-      ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                '$label ',
+                style: const TextStyle(color: Color(0xFFF2F4FF), fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                username,
+                style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 8),
+              ...List.generate(
+                3,
+                (i) => Icon(
+                  i < lives ? Icons.favorite : Icons.favorite_border,
+                  color: i < lives ? Colors.redAccent : const Color(0xFF646B82),
+                  size: 13,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Cards: $cardCount',
+                style: const TextStyle(color: Color(0xFF9EA5B8), fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              ...visibleCards.map((c) => _PlayingCard(value: c, hidden: false, color: color)),
+              if (isOpponent)
+                ...List.generate(
+                  hiddenCount ?? 0,
+                  (_) => const _PlayingCard(value: 0, hidden: true, color: Color(0xFFA15AFB)),
+                )
+              else
+                ...(hiddenCards ?? []).map((c) => _PlayingCard(value: c, hidden: false, color: Color(0xFF53D5FF))),
+            ],
+          ),
+          if (isOpponent) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Visible Total: ${visibleCards.fold<int>(0, (a, b) => a + b)}',
+              style: const TextStyle(color: Color(0xFF8F96AD), fontSize: 10),
+            ),
+          ],
+          if (hasStood) ...[
+            const SizedBox(height: 6),
+            const Text('STOOD', style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.w700)),
+          ],
+          if (!isOpponent && bottomChild != null) ...[
+            const SizedBox(height: 10),
+            bottomChild!,
+          ],
+        ],
+      ),
     );
   }
 }
@@ -704,105 +772,84 @@ class _PlayerArea extends StatelessWidget {
 class _PlayingCard extends StatelessWidget {
   final int value;
   final bool hidden;
-  const _PlayingCard({required this.value, required this.hidden});
+  final Color color;
+  const _PlayingCard({required this.value, required this.hidden, required this.color});
 
   @override
   Widget build(BuildContext context) {
     if (hidden) {
       return Container(
-        width: 70,
-        height: 100,
+        width: 38,
+        height: 58,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+          gradient: LinearGradient(
+            colors: [const Color(0xFF22253A), color.withValues(alpha: 0.45)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white24, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 4,
-              offset: const Offset(2, 2),
-            )
-          ],
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         alignment: Alignment.center,
-        child: const Icon(Icons.remove_red_eye_outlined, color: Colors.white24, size: 28),
+        child: const Icon(Icons.question_mark, color: Color(0xFFB8BDD1), size: 18),
       );
     }
 
     return Container(
-      width: 70,
-      height: 100,
+      width: 54,
+      height: 78,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF151A24),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.75), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 4,
-            offset: const Offset(2, 2),
-          )
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 10,
+          ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 4,
-            left: 6,
-            child: Text(
-              '$value',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-          ),
-          Center(
-            child: Text(
-              '$value',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.black),
-            ),
-          ),
-          Positioned(
-            bottom: 4,
-            right: 6,
-            child: Transform.rotate(
-              angle: 3.14159,
-              child: Text(
-                '$value',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-            ),
-          ),
-        ],
+      alignment: Alignment.center,
+      child: Text(
+        '$value',
+        style: TextStyle(
+          color: color,
+          fontSize: 24,
+          fontWeight: FontWeight.w500,
+          shadows: [Shadow(color: color.withValues(alpha: 0.45), blurRadius: 12)],
+        ),
       ),
     );
   }
 }
 
-class _InfoChip extends StatelessWidget {
+class _BattleButton extends StatelessWidget {
   final String label;
-  final String value;
-  final Color color;
-  const _InfoChip({required this.label, required this.value, required this.color});
+  final bool filled;
+  final VoidCallback onPressed;
+
+  const _BattleButton({
+    required this.label,
+    required this.filled,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(text: '$label: ', style: const TextStyle(color: Colors.white54, fontSize: 14)),
-            TextSpan(text: value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-          ],
+    return SizedBox(
+      height: 44,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: filled ? const Color(0xFFB04FFF) : const Color(0xBB0D0F16),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: filled ? const Color(0xFFB04FFF) : const Color(0x334E577A)),
+          ),
         ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.8)),
       ),
     );
   }
