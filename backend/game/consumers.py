@@ -148,7 +148,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def get_match(self):
         try:
-            return Match.objects.get(id=self.match_id)
+            return Match.objects.select_related('player1', 'player2').get(id=self.match_id)
         except Match.DoesNotExist:
             return None
 
