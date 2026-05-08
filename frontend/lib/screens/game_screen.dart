@@ -496,7 +496,7 @@ class _PlayerArea extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (isOpponent) _buildInfoRow(),
+        if (isOpponent) _buildInfoRow(total),
         if (isOpponent) const SizedBox(height: 16),
         Wrap(
           alignment: WrapAlignment.center,
@@ -514,12 +514,12 @@ class _PlayerArea extends StatelessWidget {
           ],
         ),
         if (!isOpponent) const SizedBox(height: 16),
-        if (!isOpponent) _buildInfoRow(),
+        if (!isOpponent) _buildInfoRow(total),
       ],
     );
   }
 
-  Widget _buildInfoRow() {
+  Widget _buildInfoRow(int total) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
